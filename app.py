@@ -1,0 +1,59 @@
+from flask import Flask, render_template, jsonify, request
+import requests
+import os
+import uuid
+from dotenv import load_dotenv
+load_dotenv()
+
+app = Flask(__name__)
+
+
+@app.route("/")
+def index_():
+    return render_template(
+        "index.html"
+    )
+
+
+@app.route("/translate", methods=["POST"])
+def translate():
+    # Read the values
+    original_text = request.json["text"]
+    target_language = request.json["language"]
+
+    # Load the values from .env
+    key = os.environ["KEY"]
+    endpoint = os.environ["ENDPOINT"]
+    location = os.environ["LOCATION"]
+
+    # Indicate that we want to translate and the API version (3.0) and the target language
+    path = "/translate?api-version=3.0"
+    # Add the target language parameter
+    target_language_parameter = "&to=" + target_language
+    # Create the full URL
+    constructed_url = endpoint + path + target_language_parameter
+
+    # Set up the header information, which includes our subscription key
+    headers = {
+        "Ocp-Apim-Subscription-Key": key,
+        "Ocp-Apim-Subscription-Region": location,
+        "Content-type": "application/json",
+        "X-ClientTraceId": str(uuid.uuid4())
+    }
+
+    # Create the body of the request with the text to be translated
+    body = [{"text": original_text}]
+
+    # Make the call using post
+    translator_request = requests.post(
+        constructed_url, headers=headers, json=body)
+    # Retrieve the JSON response
+    translator_response = translator_request.json()
+    # Retrieve the translation
+    translated_text = translator_response[0]["translations"][0]["text"]
+
+    return jsonify({"translation": translated_text})
+
+
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=5000, debug=True)
